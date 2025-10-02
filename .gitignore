@@ -2,3 +2,4 @@ tests/
 *.csv
 *.txt
 old/
+*.traineddata
