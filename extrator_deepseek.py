@@ -69,7 +69,7 @@ class OpenRouterExtractor:
         prompt = """
         Analise esta imagem de um documento fiscal/nota e extraia EXATAMENTE as seguintes informações:
 
-        1. **Número do Documento**: Número do documento que inicia com 8 (formato 8XXX).
+        1. **Número do Documento**: Número do documento que geralmente inicia com 8 (ex de formato: 8XXX).
         2. **Tipo de Combustível**: O tipo do combustível (ex: Gasolina, Etanol, Etanol S10, Diesel, etc).
         3. **Quantidade**: Quantidade do produto (em litros ou unidades).
         4. **Valor Unitário**: Preço por unidade (R$), ele sempre terá 3 casas decimais, use virgulas e pontos conforme o documento.
@@ -83,10 +83,13 @@ class OpenRouterExtractor:
         - Retorne APENAS um JSON válido com os campos exatos.
         - Use null para campos não encontrados.
         - Para valores monetários, use apenas números e com formatação do Brasil (ex: "35.198,75").
+        - Para o número do documento, ele fica localizado junto com o número de Série, este geralmente de número 1, geralmente no formato "8XXX" ou similar.
         - Para placa, mantenha o formato original.
         - Para número do documento, procure especificamente números que começam com 8 (formato 8XXX).
         - Seja preciso e extraia apenas o que está claramente visível.
         - Retorne nomes com todos os caracteres em maiúsculo.
+        - Caso não tenha certeza sobre mais que 1 campo em 1 arquivo, retorne uma mensagem falando para o usuário conferir o documento.
+        - Retorne junto o numero de certeza da IA como um todo para cada arquivo.
 
         Formato de resposta esperado:
         {
@@ -97,7 +100,8 @@ class OpenRouterExtractor:
             "valor_total": "valor ou null",
             "placa": "valor ou null",
             "km": "valor ou null",
-            "modelo_veiculo": "valor ou null"
+            "modelo_veiculo": "valor ou null",
+            "certeza_ia": "valor ou null"
         }
         """
         
@@ -252,7 +256,19 @@ class OpenRouterExtractor:
         except Exception as e:
             print(f"❌ Erro ao processar PDF: {str(e)}")
             return self._criar_resultado_vazio()
-    
+
+    def exibir_alertas(self, dados, arquivo):
+        """Exibe um alerta ao usuário, caso a IA fique com uma incerteza muito grande"""
+        certeza = dados.get("certeza_ia")
+        numero_documento = dados.get("numero_documento")
+        try:
+            certeza_val = float(str(certeza).replace(",", "."))
+        except (TypeError, ValueError):
+            certeza_val = None
+
+        if certeza_val is not None and certeza_val < 0.8:
+            print(f"\n⚠️  Atenção: A IA está com incerteza alta ({certeza}) para o arquivo '{arquivo}' (Número do Documento: {numero_documento}). Por favor, revise manualmente este arquivo.")
+
     def exibir_resultados(self, dados, arquivo):
         """Exibe os resultados de forma organizada"""
         campos_nomes = {
@@ -289,6 +305,9 @@ class OpenRouterExtractor:
         
         if dados_nao_encontrados:
             print(f"⚠️  Campos não encontrados: {', '.join(dados_nao_encontrados)}")
+
+        # Exibe alertas de incerteza
+        self.exibir_alertas(dados, arquivo)
     
     def processar_todos_pdfs(self, pasta="tests"):
         """Processa todos os PDFs de uma pasta"""
