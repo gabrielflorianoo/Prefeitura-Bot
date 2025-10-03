@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Tuple
 import csv
 import re
 
+
 class OpenRouterExtractor:
     def __init__(self, api_key: str = None):
         """
@@ -171,6 +172,7 @@ class OpenRouterExtractor:
         modelos_disponiveis = [
             # "meta-llama/llama-3.2-90b-vision-instruct",
             "mistralai/mistral-small-3.2-24b-instruct:free",
+            "moonshotai/kimi-vl-a3b-thinking:free",
         ]
 
         for modelo in modelos_disponiveis:
@@ -416,30 +418,56 @@ class OpenRouterExtractor:
                 'km': 'KM',
                 'modelo_veiculo': 'Modelo do Veículo'
             }
-        
-        print(f"\n📋 RESULTADOS PARA: {arquivo}")
-        print("=" * 60)
-        
-        dados_encontrados = []
-        dados_nao_encontrados = []
-        
-        for campo, nome_exibicao in campos_nomes.items():
-            valor = dados[campo]
-            if valor is not None and valor != "null" and str(valor).strip():
-                print(f"✅ {nome_exibicao}: {valor}")
-                dados_encontrados.append(nome_exibicao)
-            else:
-                print(f"❌ {nome_exibicao}: Não encontrado")
-                dados_nao_encontrados.append(nome_exibicao)
-        
-        # Resumo
-        total_campos = len(campos_nomes)
-        encontrados = len(dados_encontrados)
-        
-        print(f"\n📊 RESUMO: {encontrados}/{total_campos} campos extraídos")
-        
-        if dados_nao_encontrados:
-            print(f"⚠️  Campos não encontrados: {', '.join(dados_nao_encontrados)}")
+
+        # Mostra as imagens recortadas dos campos não encontrados
+        # Primeiro tenta usar IPython.display.display (se estiver disponível no ambiente)
+        try:
+            from IPython.display import display as display_fn
+        except Exception:
+            display_fn = None
+
+        # Tenta recortar novamente as regiões do PDF para exibir
+        try:
+            path_arquivo = Path("tests") / arquivo
+            documento = fitz.open(path_arquivo)
+            pagina = documento[0]
+            matriz = fitz.Matrix(2.0, 2.0)
+            pix = pagina.get_pixmap(matrix=matriz)
+            img_data = pix.tobytes("ppm")
+            img_original = Image.open(io.BytesIO(img_data))
+            regioes = self.recortar_regioes_fixas(img_original)
+            labels = ['Número do Documento', 'Data e Hora', 'Corpo do Documento', 'Placa/KM/Modelo']
+
+            print("\n🖼️ Exibindo imagens dos campos não encontrados:")
+
+            for idx, nome_exibicao in enumerate(campos_nomes.values()):
+                if nome_exibicao in dados_nao_encontrados and idx < len(regioes):
+                    img = regioes[idx]
+                    print(f"🖼️ {nome_exibicao}:")
+                    try:
+                        if display_fn is not None:
+                            # Notebook / IPython: exibe inline
+                            display_fn(img)
+                        else:
+                            # Salva imagem temporária e abre com o visualizador padrão do SO
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+                                tmp_path = tmp.name
+                                img.save(tmp_path, format='PNG')
+                            print(f"  → Imagem salva em: {tmp_path}")
+                            try:
+                                if platform.system().lower().startswith('windows'):
+                                    os.startfile(tmp_path)
+                                else:
+                                    opener = 'xdg-open' if platform.system().lower().startswith('linux') else 'open'
+                                    os.system(f"{opener} \"{tmp_path}\"")
+                            except Exception as e:
+                                print(f"⚠️ Não foi possível abrir a imagem com o visualizador do sistema: {e}")
+                    except Exception as e:
+                        print(f"⚠️ Erro ao exibir a imagem: {e}")
+
+            documento.close()
+        except Exception as e:
+            print(f"⚠️ Não foi possível exibir imagens: {e}")
     
     def processar_todos_pdfs(self, pasta="tests"):
         """Processa todos os PDFs de uma pasta"""
