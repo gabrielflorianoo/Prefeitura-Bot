@@ -503,7 +503,7 @@ class OpenRouterExtractor:
         print(f"\n💾 Resultados salvos em: {nome_arquivo}")
 
 def main():
-    print("🚀 EXTRATOR DE DADOS COM GROK VISION AI")
+    print("🚀 EXTRATOR DE DADOS COM META LLAMA VISION AI")
     print("=" * 60)
     print("🎯 Campos a extrair:")
     print("   • Data do Documento")

@@ -128,14 +128,13 @@ class OpenRouterExtractor:
         - Para o número do documento, ele fica localizado junto com o número de Série e "NF-e", e o número do documento é o de 4 dígitos que vem logo acima, na parte mais inferior do documento.
         - Caso não encontre a hora do documento, retorne 00:00.
         - Para quantidade, valor unitário e valor total, mantenha o formato original do documento
-        - Para placa, mantenha o formato original.
+        - Para placa, mantenha o formato original e a placa sempre tera o formato ABC1234, ABC1D23 , 1234 ou AB1234, caso encontre um resultado diferente ou não consiga indentificar, retorne null.
         - Faça a conta de quantidade * valor unitário e veja se bate com o valor total, se não bater, retorne null para valor total e retorne um aviso.
         - Para o combustível, os numeros 3 = D (Diesel S500), 4 = DS (Diesel S10), 5 = G (Gasolina), retorne apenas a sigla (ex: DS, G, D, etc).
         - A placa, km e modelo do veículo estão localizados na parte inferior do documento, na seção "DADOS ADICIONAIS", logo acima do "MOTOTISTA".
         - Seja preciso e extraia apenas o que está claramente visível.
         - Retorne nomes com todos os caracteres em maiúsculo.
         - Caso não tenha certeza sobre mais que 1 campo em 1 arquivo, retorne uma mensagem falando para o usuário conferir o documento.
-        - Retorne junto o numero de certeza da IA como um todo para cada arquivo.
 
         Formato de resposta esperado:
         {
@@ -149,7 +148,6 @@ class OpenRouterExtractor:
             "placa": "valor ou null",
             "km": "valor ou null",
             "modelo_veiculo": "valor ou null",
-            "certeza_ia": "valor ou null"
         }
         """
         
@@ -245,7 +243,6 @@ class OpenRouterExtractor:
             'placa': None,
             'km': None,
             'modelo_veiculo': None,
-            'certeza_ia': None
         }
 
     def _normalizar_valor(self, valor):
@@ -272,9 +269,16 @@ class OpenRouterExtractor:
         # Remove espaços e caracteres invisíveis
         s = s.replace('\u00a0', '').replace('\n', ' ').strip()
 
-        # Caso contenha letras (ex.: 'AMB. RENAULT'), retorna original em maiúsculas
-        if any(c.isalpha() for c in s) and not re.search(r'\d', s):
-            return s.upper()
+        # Caso contenha letras:
+        # - Se contém apenas letras (ex.: 'AMB RENAULT'), retorna em maiúsculas
+        # - Se contém letras e dígitos (ex.: placas como 'FEI6365'), preserva e retorna em maiúsculas
+        if any(c.isalpha() for c in s):
+            if re.search(r'\d', s):
+                # Letras e dígitos: mantém caracteres alfanuméricos e símbolos úteis
+                s_clean = re.sub(r'[^A-Za-z0-9\- ]', '', s)
+                return s_clean.upper().strip()
+            else:
+                return s.upper()
 
         # Normaliza números com milhares e decimais
         # Ex: '1.234,56' -> '1234.56'; '134,58' -> '134.58'; '22,850' -> '22.850' (ambíguo) -> treat comma as decimal
@@ -374,19 +378,9 @@ class OpenRouterExtractor:
             print(f"❌ Erro ao processar PDF: {str(e)}")
             return self._criar_resultado_vazio()
 
-    def exibir_alertas(self, dados, arquivo):
-        """Exibe um alerta ao usuário, caso a IA fique com uma incerteza muito grande"""
-        certeza = dados.get("certeza_ia")
-        numero_documento = dados.get("numero_documento")
-        try:
-            certeza_val = float(str(certeza).replace(",", "."))
-        except (TypeError, ValueError):
-            certeza_val = None
-
-        if certeza_val is not None and certeza_val < 0.8:
-            print(f"\n⚠️  Atenção: A IA está com incerteza alta ({certeza}) para o arquivo '{arquivo}' (Número do Documento: {numero_documento}). Por favor, revise manualmente este arquivo.")
-
-    campos_nomes = {
+    def exibir_resultados(self, dados, arquivo):
+        """Exibe os resultados de forma organizada (robusto a chaves ausentes)."""
+        campos_nomes = {
             'data_documento': 'Data do Documento',
             'hora_documento': 'Hora do Documento',
             'tipo_combustível': 'Tipo de Combustível',
@@ -396,8 +390,42 @@ class OpenRouterExtractor:
             'numero_documento': 'Número do Documento',
             'placa': 'Placa',
             'km': 'KM',
-            'modelo_veiculo': 'Modelo do Veículo'
+            'modelo_veiculo': 'Modelo do Veículo',
         }
+
+        print(f"\n📋 RESULTADOS PARA: {arquivo}")
+        print("=" * 60)
+
+        dados_encontrados = []
+        dados_nao_encontrados = []
+
+        for campo, nome_exibicao in campos_nomes.items():
+            valor = dados.get(campo)
+            if valor is not None and str(valor).strip() and str(valor).lower() != 'null':
+                print(f"✅ {nome_exibicao}: {valor}")
+                dados_encontrados.append(nome_exibicao)
+            else:
+                print(f"❌ {nome_exibicao}: Não encontrado")
+                dados_nao_encontrados.append(nome_exibicao)
+
+        total_campos = len(campos_nomes)
+        encontrados = len(dados_encontrados)
+        print(f"\n📊 RESUMO: {encontrados}/{total_campos} campos extraídos")
+        if dados_nao_encontrados:
+            print(f"⚠️  Campos não encontrados: {', '.join(dados_nao_encontrados)}")
+
+        campos_nomes = {
+                'data_documento': 'Data do Documento',
+                'hora_documento': 'Hora do Documento',
+                'tipo_combustível': 'Tipo de Combustível',
+                'quantidade': 'Quantidade',
+                'valor_unitario': 'Valor Unitário',
+                'valor_total': 'Valor Total',
+                'numero_documento': 'Número do Documento',
+                'placa': 'Placa',
+                'km': 'KM',
+                'modelo_veiculo': 'Modelo do Veículo'
+            }
         
         print(f"\n📋 RESULTADOS PARA: {arquivo}")
         print("=" * 60)
@@ -464,7 +492,7 @@ class OpenRouterExtractor:
         
         with open(nome_arquivo, 'w', newline='', encoding='utf-8') as csvfile:
             fieldnames = ['arquivo', 'data_documento', 'hora_documento', 'tipo_combustível', 'quantidade', 
-                         'valor_unitario', 'valor_total', 'numero_documento', 'placa', 'km', 'modelo_veiculo', 'certeza_ia']
+                         'valor_unitario', 'valor_total', 'numero_documento', 'placa', 'km', 'modelo_veiculo']
             
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
@@ -552,5 +580,4 @@ if __name__ == "__main__":
     else:
         main()
 
-if __name__ == "__main__":
-    main()
+# Entrypoint já definido acima; evita execução duplicada
