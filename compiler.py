@@ -57,10 +57,13 @@ def encontrar_pyinstaller():
 
 def verificar_arquivos():
     """Verifica se os arquivos necessários existem"""
+    # arquivos_principais = [
+    #     "extrator_deepseek.py",
+    #     "extrator_gratuito.py", 
+    #     "main.py"
+    # ]
     arquivos_principais = [
-        "extrator_deepseek.py",
-        "extrator_gratuito.py", 
-        "main.py"
+        "preenchedor_automatico.py",
     ]
     
     arquivo_encontrado = None
@@ -98,21 +101,30 @@ def criar_executavel():
     arquivo_principal = verificar_arquivos()
     if not arquivo_principal:
         return False
+
+    '''
+    hidden imports:
+    pandas as pd
+    pyautogui
+    time
+    os
+    sys
+    from pathlib Path
+    keyboard
+    threading
+    '''
     
     # Monta comando
     comando = pyinstaller_cmd + [
         "--onefile",  # Um único arquivo .exe
         "--console",  # Mantém console (mudei de --windowed)
-        "--name=ExtratorPDF",  # Nome do executável
+        "--name=Preenchedor",  # Nome do executável
         "--add-data=tests;tests",  # Inclui pasta tests
-        "--hidden-import=cv2",
-        "--hidden-import=numpy", 
-        "--hidden-import=PIL",
-        "--hidden-import=PIL.Image",
-        "--hidden-import=easyocr",
-        "--hidden-import=requests",
-        "--hidden-import=fitz",
-        "--hidden-import=PyMuPDF",
+        "--hidden-import=pandas",
+        "--hidden-import=pyautogui",
+        "--hidden-import=keyboard",
+        "--hidden-import=threading",
+        "--hidden-import=pygetwindow",
         "--distpath=dist",
         "--workpath=build",
         arquivo_principal

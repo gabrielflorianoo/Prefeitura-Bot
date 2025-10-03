@@ -77,6 +77,7 @@ class OpenRouterExtractor:
         6. **Placa**: Placa do veículo (formato ABC-1234 ou ABC1D23).
         7. **KM**: Quilometragem do veículo.
         8. **Modelo do Veículo**: Modelo/marca do carro, ele está em frente ao "OBS" logo acima do "MOTOTISTA" e abaixo da placa e km, 
+        
         se não encontrar, retorne null, não confundir com o nome do motorista que também está acima do modelo do carro.
 
         INSTRUÇÕES IMPORTANTES:
@@ -108,9 +109,9 @@ class OpenRouterExtractor:
         # Usando modelos de visão GRATUITOS/BARATOS disponíveis no OpenRouter
         modelos_disponiveis = [
             # "x-ai/grok-4-fast:free",
+            # "meta-llama/llama-3.2-90b-vision-instruct",
             "mistralai/mistral-small-3.2-24b-instruct:free",
-            "google/gemini-flash-1.5",
-            "meta-llama/llama-3.2-90b-vision-instruct",
+            # "google/gemini-flash-1.5",
         ]
         
         # Tenta diferentes modelos até encontrar um que funcione
