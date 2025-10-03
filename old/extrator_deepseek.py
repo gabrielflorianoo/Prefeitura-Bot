@@ -70,25 +70,30 @@ class OpenRouterExtractor:
         prompt = """
         Analise esta imagem de um documento fiscal/nota e extraia EXATAMENTE as seguintes informações:
 
-        1. **Número do Documento**: Número do documento que geralmente inicia com 8 (ex de formato: 8XXX).
+        1. **Número do Documento**: Número do documento que possui 4 dígitos (ex de formato: XXXX).
         2. **Data do documento**: Data em que o documento foi emitido (formato: DD/MM/AAAA).
-        3. **Tipo de Combustível**: O tipo do combustível (ex: Gasolina, Etanol, Etanol S10, Diesel, etc).
-        4. **Quantidade**: Quantidade do produto (em litros ou unidades).
-        5. **Valor Unitário**: Preço por unidade (R$), ele sempre terá 3 casas decimais, use virgulas e pontos conforme o documento.
-        6. **Valor Total**: Valor total da compra (R$), ele sempre terá 3 casas decimais, use virgulas e pontos conforme o documento.
-        7. **Placa**: Placa do veículo (formato ABC-1234 ou ABC1D23).
-        8. **KM**: Quilometragem do veículo.
-        9. **Modelo do Veículo**: Modelo/marca do carro, ele está em frente ao "OBS" logo acima do "MOTOTISTA" e abaixo da placa e km, 
-        
+        3. **Hora do documento**: Hora em que o documento foi emitido (formato: HH:MM).
+        4. **Tipo de Combustível**: O tipo do combustível (ex: Gasolina, Etanol, Etanol S10, Diesel, etc).
+        5. **Quantidade**: Quantidade do produto (em litros ou unidades).
+        6. **Valor Unitário**: Preço por unidade (R$), ele sempre terá 3 casas decimais, use virgulas e pontos conforme o documento.
+        7. **Valor Total**: Valor total da compra (R$), ele sempre terá 3 casas decimais, use virgulas e pontos conforme o documento.
+        8. **Placa**: Placa do veículo (formato ABC-1234 ou ABC1D23).
+        9. **KM**: Quilometragem do veículo.
+        10. **Modelo do Veículo**: Modelo/marca do carro, ele está em frente ao "OBS" logo acima do "MOTOTISTA" e abaixo da placa e km,
+
         se não encontrar, retorne null, não confundir com o nome do motorista que também está acima do modelo do carro.
 
         INSTRUÇÕES IMPORTANTES:
         - Retorne APENAS um JSON válido com os campos exatos.
         - Use null para campos não encontrados.
-        - Para valores monetários, use apenas números e com formatação do Brasil (ex: "35.198,75").
-        - Para o número do documento, ele fica localizado junto com o número de Série, este geralmente de número 1, geralmente no formato "8XXX" ou similar.
+        - Para valores monetários, use apenas números e com formatação do Brasil (ex: "35198,75").
+        - Para o número do documento, ele fica localizado junto com o número de Série e "NF-e", e o número do documento é o de 4 dígitos que vem logo acima, na parte mais inferior do documento.
+        - Caso não encontre a hora do documento, retorne 00:00.
+        - Para quantidade, valor unitário e valor total, mantenha o formato original do documento
         - Para placa, mantenha o formato original.
-        - Para número do documento, procure especificamente números que começam com 8 (formato 8XXX).
+        - Faça a conta de quantidade * valor unitário e veja se bate com o valor total, se não bater, retorne null para valor total e retorne um aviso.
+        - Para o combustível, os numeros 3 = D (Diesel S500), 4 = DS (Diesel S10), 5 = G (Gasolina), retorne apenas a sigla (ex: DS, G, D, etc).
+        - A placa, km e modelo do veículo estão localizados na parte inferior do documento, na seção "DADOS ADICIONAIS", logo acima do "MOTOTISTA".
         - Seja preciso e extraia apenas o que está claramente visível.
         - Retorne nomes com todos os caracteres em maiúsculo.
         - Caso não tenha certeza sobre mais que 1 campo em 1 arquivo, retorne uma mensagem falando para o usuário conferir o documento.
@@ -96,11 +101,13 @@ class OpenRouterExtractor:
 
         Formato de resposta esperado:
         {
-            "numero_documento": "valor ou null",
-            "tipo_combustível": "valor ou null", 
+            "data_documento": "DD/MM/AAAA ou null",
+            "hora_documento": "HH:MM ou null",
+            "tipo_combustível": "valor ou null",
             "quantidade": "valor ou null",
             "valor_unitario": "valor ou null",
             "valor_total": "valor ou null",
+            "numero_documento": "valor ou null",
             "placa": "valor ou null",
             "km": "valor ou null",
             "modelo_veiculo": "valor ou null",
@@ -190,11 +197,13 @@ class OpenRouterExtractor:
     def _criar_resultado_vazio(self):
         """Cria um dicionário com todos os campos como None"""
         return {
-            'numero_documento': None,
+            'data_documento': None,
+            'hora_documento': None,
             'tipo_combustível': None,
             'quantidade': None,
             'valor_unitario': None,
             'valor_total': None,
+            'numero_documento': None,
             'placa': None,
             'km': None,
             'modelo_veiculo': None,
@@ -343,11 +352,13 @@ class OpenRouterExtractor:
     def exibir_resultados(self, dados, arquivo):
         """Exibe os resultados de forma organizada"""
         campos_nomes = {
-            'numero_documento': 'Número do Documento',
+            'data_documento': 'Data do Documento',
+            'hora_documento': 'Hora do Documento',
             'tipo_combustível': 'Tipo de Combustível',
             'quantidade': 'Quantidade',
             'valor_unitario': 'Valor Unitário',
             'valor_total': 'Valor Total',
+            'numero_documento': 'Número do Documento',
             'placa': 'Placa',
             'km': 'KM',
             'modelo_veiculo': 'Modelo do Veículo'
@@ -417,8 +428,8 @@ class OpenRouterExtractor:
         nome_arquivo = "dados_extraidos_grok.csv"
         
         with open(nome_arquivo, 'w', newline='', encoding='utf-8') as csvfile:
-            fieldnames = ['arquivo', 'numero_documento', 'tipo_combustível', 'quantidade', 
-                         'valor_unitario', 'valor_total', 'placa', 'km', 'modelo_veiculo']
+            fieldnames = ['arquivo', 'data_documento', 'hora_documento', 'tipo_combustível', 'quantidade', 
+                         'valor_unitario', 'valor_total', 'numero_documento', 'placa', 'km', 'modelo_veiculo', 'certeza_ia']
             
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
@@ -432,11 +443,13 @@ def main():
     print("🚀 EXTRATOR DE DADOS COM GROK VISION AI")
     print("=" * 60)
     print("🎯 Campos a extrair:")
-    print("   • Número do Documento (formato 8XXX)")
-    print("   • Código do Produto") 
+    print("   • Data do Documento")
+    print("   • Hora do Documento")
+    print("   • Tipo de Combustível")
     print("   • Quantidade")
     print("   • Valor Unitário")
     print("   • Valor Total")
+    print("   • Número do Documento (formato 8XXX)")
     print("   • Placa")
     print("   • KM")
     print("   • Modelo do Veículo")

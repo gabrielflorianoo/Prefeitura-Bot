@@ -1,9 +1,10 @@
 tests/
 *.csv
 *.txt
-old/
+old/tests
 *.traineddata
 build
 dist
 main.py
 *.spec
+*.pdf
