@@ -70,13 +70,14 @@ class OpenRouterExtractor:
         Analise esta imagem de um documento fiscal/nota e extraia EXATAMENTE as seguintes informações:
 
         1. **Número do Documento**: Número do documento que geralmente inicia com 8 (ex de formato: 8XXX).
-        2. **Tipo de Combustível**: O tipo do combustível (ex: Gasolina, Etanol, Etanol S10, Diesel, etc).
-        3. **Quantidade**: Quantidade do produto (em litros ou unidades).
-        4. **Valor Unitário**: Preço por unidade (R$), ele sempre terá 3 casas decimais, use virgulas e pontos conforme o documento.
-        5. **Valor Total**: Valor total da compra (R$), ele sempre terá 3 casas decimais, use virgulas e pontos conforme o documento.
-        6. **Placa**: Placa do veículo (formato ABC-1234 ou ABC1D23).
-        7. **KM**: Quilometragem do veículo.
-        8. **Modelo do Veículo**: Modelo/marca do carro, ele está em frente ao "OBS" logo acima do "MOTOTISTA" e abaixo da placa e km, 
+        2. **Data do documento**: Data em que o documento foi emitido (formato: DD/MM/AAAA).
+        3. **Tipo de Combustível**: O tipo do combustível (ex: Gasolina, Etanol, Etanol S10, Diesel, etc).
+        4. **Quantidade**: Quantidade do produto (em litros ou unidades).
+        5. **Valor Unitário**: Preço por unidade (R$), ele sempre terá 3 casas decimais, use virgulas e pontos conforme o documento.
+        6. **Valor Total**: Valor total da compra (R$), ele sempre terá 3 casas decimais, use virgulas e pontos conforme o documento.
+        7. **Placa**: Placa do veículo (formato ABC-1234 ou ABC1D23).
+        8. **KM**: Quilometragem do veículo.
+        9. **Modelo do Veículo**: Modelo/marca do carro, ele está em frente ao "OBS" logo acima do "MOTOTISTA" e abaixo da placa e km, 
         
         se não encontrar, retorne null, não confundir com o nome do motorista que também está acima do modelo do carro.
 
